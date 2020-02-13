@@ -1,5 +1,5 @@
 # Data_pipeline for BraTS 2019 Dataset
-This is a small piece of the project I'm working on currently, but still I'd like to publish it as soon as possible because I hope this may help a little bit for people who're interested in playing with the [BraTS 2019](https://www.med.upenn.edu/cbica/brats2019.html) dataset.
+This is a small piece of the project I'm working on currently, but still I'd like to publish it here because I hope this may help a little bit for people who're interested in playing with the [BraTS 2019](https://www.med.upenn.edu/cbica/brats2019.html) dataset.
 
 In general, I've reconstructed the pipeline code in [this repository](https://github.com/woodywff/brats_2019]) with `h5py`.
 

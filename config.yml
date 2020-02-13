@@ -1,0 +1,33 @@
+data:
+  affine_file: data/affine.npy
+  all_mods:
+  - t1
+  - t1ce
+  - flair
+  - t2
+  cross_val_indices: data/cross_val_indices.pkl
+  len_testing: 166
+  len_training: 335
+  len_validation: 125
+  mean_std_file: data/mean_std.pkl
+  source_test: data/MICCAI_BraTS_2019_Data_Testing
+  source_train: data/MICCAI_BraTS_2019_Data_Training
+  source_val: data/MICCAI_BraTS_2019_Data_Validation
+  testing_h5: data/testing.h5
+  training_h5: data/training.h5
+  validation_h5: data/validation.h5
+  aug_distort: 0.25
+  labels:
+  - 1
+  - 2
+  - 4
+  patch_shape: 128
+  patch_overlap: null
+  batch_size_train: 1
+  batch_size_val: 2
+  augment: true
+  augment_flip: true
+  augment_distortion_factor: 0.25
+  permute: true
+  skip_health: true
+

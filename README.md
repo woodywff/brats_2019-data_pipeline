@@ -3,7 +3,7 @@ This is a small piece of the project I'm working on currently, but still I'd lik
 
 In general, I've reconstructed the pipeline code in [this repository](https://github.com/woodywff/brats_2019]) with `h5py`.
 
-To get started, you just need to unzip the downloaded datasets into the `/data` folder. Then to do the preprocess you can go with 
+To get started, you just need to unzip the downloaded datasets into the `brats_2019-data_pipeline/data` folder. Then to do the preprocess you can go with 
 ```
 from preprocess import preprocess
 preprocess()

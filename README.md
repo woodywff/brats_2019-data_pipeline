@@ -21,4 +21,4 @@ You could get the iterable generator for training by `dataset.train_generator` a
 ## Acknowledgement
 Again, this work is based on [my former repository](https://github.com/woodywff/brats_2019]) which inherited from [ellisdg's repository](https://github.com/ellisdg/3DUnetCNN.git). Deeply appreciate [ellisdg](https://github.com/ellisdg)'s contributions to the community.
 
-Many thanks to the host of [BraTS challenge](https://www.med.upenn.edu/cbica/brats2019.html).
+Many thanks to the host of the [BraTS challenges](https://www.med.upenn.edu/cbica/brats2019.html).

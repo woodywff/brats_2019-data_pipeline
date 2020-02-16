@@ -5,7 +5,9 @@ import h5py
 from patches import create_id_index_patch_list, get_patch_from_3d_data
 from augment import do_augment, random_permutation_x_y
 import pickle
-from generator import *
+from tqdm.notebook import tqdm
+import os
+import pdb
 
 class Dataset():
     '''
@@ -34,35 +36,38 @@ class Dataset():
                          patch_shape = self.data_config['patch_shape'], 
                          patch_overlap = self.data_config['patch_overlap'],
                          batch_size= self.data_config['batch_size_train'], 
+                         epochs = self.data_config['epochs'],
                          labels = self.data_config['labels'], 
                          augment = self.data_config['augment'], 
                          augment_flip = self.data_config['augment_flip'], 
                          augment_distortion_factor = self.data_config['augment_distortion_factor'], 
                          permute = self.data_config['permute'],
-                         affine_file = self.data_config['affine_file']).generator()
+                         affine_file = self.data_config['affine_file'],
+                         spe_file = self.data_config['spe_file'])
     @property
     def val_generator(self):
         return Generator(self._val_indices, 
                          self.data_config['training_h5'], 
                          patch_shape = self.data_config['patch_shape'], 
-                         patch_overlap = self.data_config['patch_overlap'],
                          batch_size= self.data_config['batch_size_val'],
                          labels = self.data_config['labels'], 
-                         shuffle_index_list = False).generator()
+                         shuffle_index_list = False,
+                         spe_file = self.data_config['spe_file'])
 
 class Generator():
     def __init__(self, indices_list, data_file, 
                        patch_shape, patch_overlap = None, 
-                       batch_size=1, labels=None, 
+                       batch_size=1, epochs=1, labels=None, 
                        augment=False, augment_flip=True, augment_distortion_factor=0.25, permute=False,
                        shuffle_index_list=True, 
-                       affine_file = None,
+                       affine_file = None, spe_file = None,
                        skip_health = True):
         self.indices_list = indices_list # list of indices in .h5.keys()
         self.data_file = data_file # .h5 file path
         self.patch_shape = [patch_shape] * 3 if isinstance(patch_shape,int) else patch_shape
         self.patch_overlap = patch_overlap
         self.batch_size = batch_size
+        self.epochs = epochs
         self.labels = labels
         self.augment = augment
         self.augment_flip = augment_flip
@@ -70,29 +75,81 @@ class Generator():
         self.permute = permute # rotate and flip
         self.shuffle_index_list = shuffle_index_list
         self.affine_file = affine_file # affine.npy path
+        self.spe_file = spe_file # steps per epoch .yml
         self.skip_health = skip_health # True: skip none tumor images
+        
+        self.epoch_init()
+        
     
-    def generator(self):
-        while True:
-            self.x_list = []
-            self.y_list = []
-            id_index_patch_list = create_id_index_patch_list(self.indices_list, 
+    def epoch_init(self):
+        '''
+        The self.steps_per_epoch is needed by the tqdm outside the Generator class.
+        So we need to calc it before each invoking of self.epoch().
+        self.spe_file saves a dict, for each key named as spe_name we hold the corresponding spe value.
+        For a certain Generator(), the spe value mainly changes when self.patch_overlap is not None or 0,
+        that's when the overlap varies as a random int from 0 to self.patch_overlap (inclusive).
+        '''
+        self.id_index_patch_list = create_id_index_patch_list(self.indices_list, 
                                                               self.data_file, 
                                                               self.patch_shape, 
-                                                              self.patch_overlap)
-            if self.shuffle_index_list:
-                shuffle(id_index_patch_list)
-            while len(id_index_patch_list) > 0:
-                id_index_patch = id_index_patch_list.pop()
-                self.add_data(id_index_patch)
-                if len(self.x_list) == self.batch_size or (len(id_index_patch_list) == 0 and len(self.x_list) > 0):
-                    yield self.convert_data()
-    #                 convert_data()
-                    self.x_list = []
-                    self.y_list = []
-        return
+                                                              self.patch_overlap if not self.patch_overlap \
+                                                              else random.randint(0,self.patch_overlap + 1))
+        
+#         pdb.set_trace()
+        if not os.path.exists(self.spe_file):
+            with open(self.spe_file, 'wb') as f:
+                pickle.dump({},f)
+        with open(self.spe_file, 'rb') as f:
+            spes = pickle.load(f)
+        spe_name = '{}{}{}{}'.format(self.indices_list[0], self.patch_shape[0], self.patch_overlap, self.batch_size)
+        if spes.get(spe_name) is None:
+            self.steps_per_epoch = self.get_steps_per_epoch()
+            spes[spe_name] = self.steps_per_epoch
+            with open(self.spe_file, 'wb') as f:
+                pickle.dump(spes,f)
+        else:
+            self.steps_per_epoch = spes[spe_name]
     
-    def add_data(self, id_index_patch):
+    def _get_num_patches(self):
+        id_index_patch_list = self.id_index_patch_list.copy()
+        count = 0
+        for id_index_patch in tqdm(id_index_patch_list, desc = 'Calculating the number of patches'):
+            x_list = []
+            y_list = []
+            self.add_data(x_list, y_list, id_index_patch, _augment = False, _permute = False)
+            if len(x_list) > 0:
+                count += 1
+        return count
+    
+    def get_steps_per_epoch(self):
+        return int(np.ceil(self._get_num_patches()/self.batch_size))
+        
+    def epoch(self):
+        '''
+        A generator for one epoch.
+        If self.patch_overlap is set, for each epoch the paching results may be different, 
+        so we need to self.epoch_init() each time.
+        '''
+        x_list = []
+        y_list = []
+            
+        id_index_patch_list = self.id_index_patch_list.copy()
+        if self.shuffle_index_list:
+            shuffle(id_index_patch_list)
+        while len(id_index_patch_list) > 0:
+            id_index_patch = id_index_patch_list.pop()
+            self.add_data(x_list, y_list, id_index_patch)
+            if len(x_list) == self.batch_size or (len(id_index_patch_list) == 0 and len(x_list) > 0):
+                yield self.convert_data(x_list, y_list)
+#                 convert_data()
+                x_list = []
+                y_list = []
+        
+        if not self.patch_overlap:
+            self.epoch_init()
+        return    
+    
+    def add_data(self, x_list, y_list, id_index_patch, _augment = True, _permute = True):
         '''
         Add qualified x,y to the generator list
         '''
@@ -105,15 +162,15 @@ class Generator():
         # skip none tumor images
         if self.skip_health and np.all(truth==0):
             return
-        if self.augment:
+        if self.augment and _augment:
             affine = np.load(self.affine_file)
             data, truth = do_augment(data, truth, affine, flip=self.augment_flip, 
                                      scale_deviation=self.augment_distortion_factor)
-        if self.permute:
+        if self.permute and _permute:
             assert data.shape[-1] == data.shape[-2] == data.shape[-3], 'Not a cubic patch!'
             data, truth = random_permutation_x_y(data, truth)
-        self.x_list.append(data)
-        self.y_list.append(truth)
+        x_list.append(data)
+        y_list.append(truth)
         return
     
     
@@ -148,10 +205,10 @@ class Generator():
         y = get_patch_from_3d_data(truth, self.patch_shape, patch)
         return x, y
 
-    def convert_data(self):
+    def convert_data(self, x_list, y_list):
     #     pdb.set_trace()
-        x = np.asarray(self.x_list)
-        y = np.asarray(self.y_list)
+        x = np.asarray(x_list)
+        y = np.asarray(y_list)
         y = self.get_multi_class_labels(y)
         return x, y
 

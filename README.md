@@ -1,5 +1,6 @@
 # Data_pipeline for BraTS 2019 Dataset
 This is a small piece of the project I'm working on currently, but still I'd like to publish it here because I hope this may help a little bit for people who're interested in playing with the [BraTS 2019](https://www.med.upenn.edu/cbica/brats2019.html) dataset.
+ (UPDATE: That project has been finished by now. The [article](https://arxiv.org/abs/2005.06338) and [source code](https://github.com/woodywff/nas_3d_unet) have been published already. You may find some update of this pipeline in that [repository]((https://github.com/woodywff/nas_3d_unet)).)
 
 In general, I've reconstructed the pipeline code in [this repository](https://github.com/woodywff/brats_2019]) with `h5py`.
 
